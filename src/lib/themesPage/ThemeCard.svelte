@@ -3,19 +3,31 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { invoke } from '@tauri-apps/api/core';
+	import { info } from '@tauri-apps/plugin-log'
 	import ColorPalette from './ColorPalette.svelte';
 	import { goto } from '$app/navigation';
 
 	let { dir, title, imageUrl = '', is_system, is_custom, colors = null } = $props();
+	let isApplying = $state(false);
 
 	async function applyTheme(themeDir) {
+		await info("apply theme called");
+		if (isApplying) return;
+		await info("apply theme lock is false");
+		isApplying = true;
+		await info("apply theme lock set to true");
 		try {
+			await info("apply theme invoke");
 			await invoke('apply_theme', { dir: themeDir });
+			await info("apply theme invoke resolves");
 		} catch (e) {
 			// Handle error
+		} finally {
+			await info("apply theme lock released");
+			isApplying = false;
 		}
 	}
-
+	
 	async function applyThemeIfEnabled(themeDir) {
 		try {
 			const settings = await invoke('get_app_settings');
@@ -48,9 +60,9 @@
 			</div>
 			<div class="flex flex-row gap-2">
 				{#if is_custom}
-					<Badge variant="primary" class="text-muted-foreground bg-muted dark:bg-muted/50"
-						>Custom</Badge
-					>
+					<Badge variant="primary" class="text-muted-foreground bg-muted dark:bg-muted/50">
+						Custom
+					</Badge>
 				{:else if is_system}
 					<Badge variant="secondary" class="text-muted-foreground">System</Badge>
 				{:else}
@@ -70,9 +82,16 @@
 				Apply Theme
 			</Button>
 			{#if is_custom}
-				<Button variant="ghost" size="sm" class="uppercase" onclick={() => editTheme(dir)}
-					>Edit Theme</Button
+				<Button
+					variant={isApplying?"outline":"ghost"}
+					size="sm"
+					class="uppercase"
+					onclick={() => applyTheme(dir)}
+					disabled={isApplying}
 				>
+					{isApplying ? 'Applying...' : 'Apply Theme'}
+				</Button>
+
 			{/if}
 		</Card.Footer>
 	</Card.Root>
