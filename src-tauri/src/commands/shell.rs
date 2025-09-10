@@ -20,8 +20,8 @@ pub async fn execute_bash_command(command: String) -> Result<String, String> {
         log::info!("Command executed successfully");
         Ok(stdout)
     } else {
-        let stderr =
-            String::from_utf8(output.stderr).unwrap_or_else(|_| "Unknown error".to_string());
+        let stderr = String::from_utf8(output.stderr)
+            .unwrap_or_else(|_| "Unknown error".to_string());
         log::error!("Command failed: {}", stderr);
         Err(format!("Command failed: {}", stderr))
     }
@@ -138,13 +138,7 @@ pub fn get_omarchy_version() -> Result<String, String> {
 #[tauri::command]
 pub async fn apply_theme(dir: String) -> Result<(), String> {
 
-    log::info!("apply themers begin");
-
-    let output = Command::new("omarchy-theme-set").arg(&dir).spawn();
-
-    log::info!("apply themers command resolves");
-
-    let result = output
+    let result = Command::new("omarchy-theme-set").arg(&dir).spawn()
         .and_then(|child| child.wait_with_output())
         .map(|output| {
             if output.status.success() {
@@ -159,7 +153,6 @@ pub async fn apply_theme(dir: String) -> Result<(), String> {
             Ok(())
         });
 
-
     // Invalidate cache after theme application to ensure fresh state
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
@@ -169,8 +162,6 @@ pub async fn apply_theme(dir: String) -> Result<(), String> {
             let _ = cache.trigger_background_refresh().await;
         }
     }
-
-    log::info!("apply themers command done");
 
     result
 }

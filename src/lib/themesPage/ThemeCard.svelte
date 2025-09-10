@@ -81,20 +81,19 @@
 			{/if}
 		</Card.Content>
 		<Card.Footer class="flex items-center justify-between uppercase">
-			<Button variant="ghost" size="sm" class="uppercase" onclick={() => applyTheme(dir)}>
-				Apply Theme
+			<Button
+				variant={isApplying ? "outline" : "ghost"}
+				size="sm"
+				class="uppercase"
+				onclick={() => applyTheme(dir)}
+				disabled={isApplying}
+			>
+				{isApplying ? 'Applying...' : 'Apply Theme'}
 			</Button>
 			{#if is_custom}
-				<Button
-					variant={isApplying?"outline":"ghost"}
-					size="sm"
-					class="uppercase"
-					onclick={() => applyTheme(dir)}
-					disabled={isApplying}
-				>
-					{isApplying ? 'Applying...' : 'Apply Theme'}
+				<Button variant="ghost" size="sm" class="uppercase" onclick={() => editTheme(dir)}>
+					Edit Theme
 				</Button>
-
 			{/if}
 		</Card.Footer>
 	</Card.Root>
