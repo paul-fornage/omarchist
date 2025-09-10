@@ -144,19 +144,21 @@ pub async fn apply_theme(dir: String) -> Result<(), String> {
 
     log::info!("apply themers command resolves");
 
-    let result = match output {
-        Ok(_) => {
-            log::info!("Successfully started omarchy-theme-set for theme {dir}");
-            Ok(())
-        },
-        Err(e) => {
-            // Log the error but don't fail the process
-            log::warn!("Failed to run omarchy-theme-set: {e}");
+    let result = output
+        .and_then(|child| child.wait_with_output())
+        .map(|output| {
+            if output.status.success() {
+                log::info!("Successfully started omarchy-theme-set for theme {dir}");
+            } else {
+                log::warn!("omarchy-theme-set fails with output:\n{output:?}");
+            }
+        })
+        .or_else(|e| {
+            log::warn!("Failed to run or wait for omarchy-theme-set: {e}");
             log::info!("Continuing without theme application...");
-            // Return Ok to not stop the process
             Ok(())
-        },
-    };
+        });
+
 
     // Invalidate cache after theme application to ensure fresh state
     if result.is_ok() {
