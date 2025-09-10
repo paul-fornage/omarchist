@@ -3,34 +3,32 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { invoke } from '@tauri-apps/api/core';
-	import { info, warn } from '@tauri-apps/plugin-log';
+	import { warn } from '@tauri-apps/plugin-log';
 	import ColorPalette from './ColorPalette.svelte';
 	import { goto } from '$app/navigation';
+	import { themeApplyState } from '$lib/stores/themeApplyState';
+	import { get } from 'svelte/store';
 
 	let { dir, title, imageUrl = '', is_system, is_custom, colors = null } = $props();
-	let isApplying = $state(false);
+
+	const isApplying = $derived($themeApplyState === dir);
 
 	async function applyTheme(themeDir) {
-		await info("apply theme called");
-		if (isApplying) {
-			await warn("Skipped applying theme for lock");
+		let applying_theme = get(themeApplyState);
+		if (applying_theme != null) {
+			await warn("Skipped applying theme for lock. Already applying `", applying_theme, "`");
 			return;
 		}
-		await info("apply theme lock is false");
-		isApplying = true;
-		await info("apply theme lock set to true");
+		themeApplyState.set(themeDir);
 		try {
-			await info("apply theme invoke");
 			await invoke('apply_theme', { dir: themeDir });
-			await info("apply theme invoke resolves");
 		} catch (e) {
 			// Handle error
 		} finally {
-			await info("apply theme lock released");
-			isApplying = false;
+			themeApplyState.set(null);
 		}
 	}
-	
+
 	async function applyThemeIfEnabled(themeDir) {
 		try {
 			const settings = await invoke('get_app_settings');
