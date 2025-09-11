@@ -1,5 +1,6 @@
 use super::ConfigGenerator;
 use serde_json::{json, Value};
+use crate::services::generators::css_parser;
 
 pub struct WalkerGenerator;
 
@@ -120,8 +121,130 @@ impl ConfigGenerator for WalkerGenerator {
         })
     }
 
-    fn parse_existing_config(&self, _content: &str) -> Result<Value, String> {
-        // For now, return empty - could implement CSS parsing if needed
-        Ok(json!({}))
+    fn parse_existing_config(&self, content: &str) -> Result<Value, String> {
+        let css_keys = [
+            "selected-text",
+            "text",
+            "base",
+            "border",
+            "foreground",
+            "background",
+        ];
+
+        let colors_obj = css_parser(content, &css_keys)?;
+
+        let mut walker_obj = serde_json::Map::new();
+        if !colors_obj.is_empty() {
+            walker_obj.insert("colors".into(), Value::Object(colors_obj));
+        }
+        Ok(json!({ "walker": walker_obj }))
+    }
+
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn walker_json_round_trip(input_json: &Value) {
+        let generator = WalkerGenerator;
+
+        // Generate config from JSON
+        let generated_conf = generator
+            .generate_config(input_json)
+            .expect("generate_config should succeed");
+
+        // Parse back config -> JSON
+        let parsed_json: Value = generator
+            .parse_existing_config(&generated_conf)
+            .expect("parse_existing_config should succeed");
+
+        assert_eq!(
+            parsed_json, *input_json,
+            "Walker JSON before and after config generation/parsing should be identical"
+        );
+    }
+
+    #[test]
+    fn walker_json_round_trip_is_lossless() {
+        let input_json = json!({
+            "walker": {
+                "colors": {
+                    "selected_text": "#B91C1C",
+                    "text": "#EAEAEA",
+                    "base": "#121212",
+                    "border": "#EAEAEA88",
+                    "foreground": "#abc123",
+                    "background": "#222222"
+                }
+            }
+        });
+        walker_json_round_trip(&input_json);
+    }
+
+    fn walker_round_trip(input_conf: &str) {
+        let generator = WalkerGenerator;
+
+        // Parse -> JSON
+        let parsed1: Value = generator
+            .parse_existing_config(input_conf)
+            .expect("parse_existing_config should succeed");
+
+        // Generate -> walker.css
+        let regenerated_conf = generator
+            .generate_config(&parsed1)
+            .expect("generate_config should succeed");
+
+        // Parse regenerated -> JSON
+        let parsed2: Value = generator
+            .parse_existing_config(&regenerated_conf)
+            .expect("parse_existing_config on regenerated config should succeed");
+
+        assert_eq!(
+            parsed1, parsed2,
+            "Walker parsed JSON before and after regeneration should be identical"
+        );
+    }
+
+    #[test]
+    fn walker_round_trip_is_lossless() {
+        let input_conf = r#"
+@define-color selected-text #B91C1C;
+@define-color text #EAEAEA;
+@define-color base #121212;
+@define-color border #EAEAEA88;
+@define-color foreground #abc123;
+@define-color background #222222;
+"#;
+        walker_round_trip(input_conf);
+    }
+
+    #[test]
+    fn walker_round_trip_accepts_extra_whitespace() {
+        let input_conf = r#"
+    @define-color   selected-text   #b91c1c  ;
+@define-color    text    #eaeaea;
+@define-color base   #121212     ;
+@define-color border #eaeaea88;
+      @define-color foreground #eaeaea;
+   @define-color background #121212;
+"#;
+        walker_round_trip(input_conf);
+    }
+
+    #[test]
+    fn walker_parses_partial_config() {
+        let input_conf = r#"
+@define-color text #dedede;
+@define-color background #111111;
+"#;
+        let parsed = WalkerGenerator
+            .parse_existing_config(input_conf)
+            .unwrap();
+        assert_eq!(
+            parsed,
+            json!({"walker": { "colors": { "text": "#dedede", "background": "#111111" }}})
+        );
     }
 }

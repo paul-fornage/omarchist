@@ -1,4 +1,5 @@
-use serde_json::Value;
+use regex::Regex;
+use serde_json::{json, Map, Value};
 
 pub mod alacritty;
 pub mod btop;
@@ -68,4 +69,25 @@ impl ConfigGeneratorRegistry {
     pub fn get_schema_for_app(&self, app_name: &str) -> Option<Value> {
         self.get_generator(app_name).map(|g| g.get_config_schema())
     }
+}
+
+
+pub fn css_parser(content: &str, valid_css_keys: &[&str]) -> Result<Map<String, Value>, String> {
+
+    let mut out_obj = serde_json::Map::new();
+    
+    let re = Regex::new(
+        r#"(?m)^\s*@define-color\s+(?P<css_key>[A-Za-z0-9_-]+)\s+(?P<value>[^;]+);"#
+    ).map_err(|e| e.to_string())?;
+
+    for cap in re.captures_iter(content) {
+        let css_key = cap.name("css_key").map(|m| m.as_str().trim()).unwrap_or_default();
+        
+        if valid_css_keys.contains(&css_key) {
+            let value = cap.name("value").map(|m| m.as_str().trim()).unwrap_or_default();
+            out_obj.insert(css_key.replace("-", "_"), json!(value));
+        }
+    }
+
+    Ok(out_obj)
 }
